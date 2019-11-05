@@ -1,12 +1,12 @@
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Scanner;
+import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.Vector;
-
-import javax.management.modelmbean.RequiredModelMBean;
 
 import org.snmp4j.CommunityTarget;
 import org.snmp4j.PDU;
@@ -14,8 +14,6 @@ import org.snmp4j.Snmp;
 import org.snmp4j.TransportMapping;
 import org.snmp4j.event.ResponseEvent;
 import org.snmp4j.mp.SnmpConstants;
-import org.snmp4j.smi.Address;
-import org.snmp4j.smi.GenericAddress;
 import org.snmp4j.smi.Integer32;
 import org.snmp4j.smi.OID;
 import org.snmp4j.smi.OctetString;
@@ -75,8 +73,8 @@ public class main {
 		System.out.println(" 4 - GETBULK");
 		System.out.println(" 5 - WALK");
 		System.out.println(" 6 - GETTABLE");
-		//System.out.println(" 7 - GETDELTA");
-		
+		// System.out.println(" 7 - GETDELTA");
+
 		opt = Integer.parseInt(ss.nextLine());
 
 		String oid, inst;
@@ -138,10 +136,12 @@ public class main {
 
 		case 4: // GETBULK
 
-			System.out.println("Informe os OIDs (já com a instancia e separados por ';'):");
-			
+			System.out
+					.println("Informe os OIDs (já com a instancia e separados por ';'):");
+
 			oidValue = ".1.3.6.1.2.1.1.1.0;.1.3.6.1.2.1.1.2.0;.1.3.6.1.2.1.1.3.0";
-			System.out.println("(default: .1.3.6.1.2.1.1.1.0;.1.3.6.1.2.1.1.2.0;.1.3.6.1.2.1.1.3.0)");
+			System.out
+					.println("(default: .1.3.6.1.2.1.1.1.0;.1.3.6.1.2.1.1.2.0;.1.3.6.1.2.1.1.3.0)");
 			oid = ss.nextLine();
 			if (!oid.isEmpty())
 				oidValue = oid;
@@ -157,45 +157,30 @@ public class main {
 			snmpGetBulk(iNonRepeaters, iMaxRepetitions);
 
 			break;
-			
+
 		case 5: // WALK
 
-			oidValue = ".1.3.6.1.2.1.2";
+			oidValue = ".1.3.6.1.2.1.2.2";
 			System.out.println("Informe o OID: (default: " + oidValue + "):");
 			oid = ss.nextLine();
 			if (!oid.isEmpty())
 				oidValue = oid;
-
-			instance = "2";
-			System.out.println("Informe a instância (default: " + instance
-					+ "):");
-			inst = ss.nextLine();
-			if (!inst.isEmpty())
-				instance = inst;
 
 			snmpWalk();
 
 			break;
-			
+
 		case 6: // GETTABLE
 
-			oidValue = ".1.3.6.1.2.1.2";
+			oidValue = ".1.3.6.1.2.1.2.2";
 			System.out.println("Informe o OID: (default: " + oidValue + "):");
 			oid = ss.nextLine();
 			if (!oid.isEmpty())
 				oidValue = oid;
 
-			instance = "2";
-			System.out.println("Informe a instância (default: " + instance
-					+ "):");
-			inst = ss.nextLine();
-			if (!inst.isEmpty())
-				instance = inst;
-
 			snmpGetTable();
 
 			break;
-
 
 		default:
 			System.out.println("Opt inválida!");
@@ -402,12 +387,13 @@ public class main {
 
 		// Create the PDU object
 		String[] oids = oidValue.split(";");
-		ArrayList<VariableBinding> vbs = new ArrayList<VariableBinding>(oids.length);
+		ArrayList<VariableBinding> vbs = new ArrayList<VariableBinding>(
+				oids.length);
 		for (String oid : oids) {
 			// do something interesting here
 			vbs.add(new VariableBinding(new OID(oid)));
 		}
-		
+
 		PDU pdu = new PDU();
 		pdu.setType(PDU.GETBULK);
 		pdu.addAll(vbs);
@@ -429,14 +415,15 @@ public class main {
 				String errorStatusText = responsePDU.getErrorStatusText();
 
 				if (errorStatus == PDU.noError) {
-					
+
 					System.out.println("Snmp GetBulk Response: ok");
-					
-					Vector<? extends VariableBinding> vbs2 = responsePDU.getVariableBindings();
+
+					Vector<? extends VariableBinding> vbs2 = responsePDU
+							.getVariableBindings();
 					for (VariableBinding vb : vbs2) {
 
 						System.out.println(vb.getVariable());
-						
+
 					}
 				} else {
 					System.out.println("Error: Request Failed");
@@ -455,8 +442,7 @@ public class main {
 		snmp.close();
 	}
 
-	private static void snmpWalk()
-			throws IOException {
+	private static void snmpWalk() throws IOException {
 
 		// Create TransportMapping and Listen
 		TransportMapping transport = new DefaultUdpTransportMapping();
@@ -473,56 +459,54 @@ public class main {
 		// Create Snmp object for sending data to Agent
 		Snmp snmp = new Snmp(transport);
 
-		
-// #####
+		// #####
 		Map<String, String> result = new TreeMap<String, String>();
-        
-        TreeUtils treeUtils = new TreeUtils(snmp, new DefaultPDUFactory());
-        List<TreeEvent> events = treeUtils.getSubtree(comtarget, new OID(oidValue));
-        if (events == null || events.size() == 0) {
-            System.out.println("Error: Unable to read table...");
-            //return result;
-        }
- 
-        for (TreeEvent event : events) {
-            if (event == null) {
-                continue;
-            }
-            if (event.isError()) {
-                System.out.println("Error: table OID [" + oidValue + "] " + event.getErrorMessage());
-                continue;
-            }
- 
-            VariableBinding[] varBindings = event.getVariableBindings();
-            if (varBindings == null || varBindings.length == 0) {
-                continue;
-            }
-            for (VariableBinding varBinding : varBindings) {
-                if (varBinding == null) {
-                    continue;
-                }
-                 
-                result.put("." + varBinding.getOid().toString(), varBinding.getVariable().toString());
-            }
- 
-        }
-        
-        for (Map.Entry<String, String> entry : result.entrySet()) {
-//            if (entry.getKey().startsWith(".1.3.6.1.2.1.2.2.1.2.")) {
-//                System.out.println("ifDescr" + entry.getKey().replace(".1.3.6.1.2.1.2.2.1.2", "") + ": " + entry.getValue());
-//            }
-//            if (entry.getKey().startsWith(".1.3.6.1.2.1.2.2.1.3.")) {
-//                System.out.println("ifType" + entry.getKey().replace(".1.3.6.1.2.1.2.2.1.3", "") + ": " + entry.getValue());
-//            }
-        	if (entry.getKey().startsWith(oidValue + "." + instance))
-        		System.out.println(entry.getKey() + ": " + entry.getValue());
-        }
-        
+
+		TreeUtils treeUtils = new TreeUtils(snmp, new DefaultPDUFactory());
+		List<TreeEvent> events = treeUtils.getSubtree(comtarget, new OID(
+				oidValue));
+		if (events == null || events.size() == 0) {
+			System.out.println("Error: Unable to read table...");
+			// return result;
+		}
+
+		for (TreeEvent event : events) {
+			if (event == null) {
+				continue;
+			}
+			if (event.isError()) {
+				System.out.println("Error: table OID [" + oidValue + "] "
+						+ event.getErrorMessage());
+				continue;
+			}
+
+			VariableBinding[] varBindings = event.getVariableBindings();
+			if (varBindings == null || varBindings.length == 0) {
+				continue;
+			}
+			for (VariableBinding varBinding : varBindings) {
+				if (varBinding == null) {
+					continue;
+				}
+
+				result.put("." + varBinding.getOid().toString(), varBinding
+						.getVariable().toString());
+			}
+
+		}
+
+		for (Map.Entry<String, String> entry : result.entrySet()) {
+
+			if (entry.getKey().startsWith(oidValue)) {
+				System.out.println(entry.getKey() + ": " + entry.getValue());
+			}
+		}
+
 		snmp.close();
-		
+
 	}
 
-	private static void snmpGetTable()throws IOException {
+	private static void snmpGetTable() throws IOException {
 
 		// Create TransportMapping and Listen
 		TransportMapping transport = new DefaultUdpTransportMapping();
@@ -539,78 +523,74 @@ public class main {
 		// Create Snmp object for sending data to Agent
 		Snmp snmp = new Snmp(transport);
 
-		
-// #####
-		Map<String, String> result = new TreeMap<String, String>();
-        
-        TreeUtils treeUtils = new TreeUtils(snmp, new DefaultPDUFactory());
-        List<TreeEvent> events = treeUtils.getSubtree(comtarget, new OID(oidValue));
-        if (events == null || events.size() == 0) {
-            System.out.println("Error: Unable to read table...");
-            //return result;
-        }
- 
-        for (TreeEvent event : events) {
-            if (event == null) {
-                continue;
-            }
-            if (event.isError()) {
-                System.out.println("Error: table OID [" + oidValue + "] " + event.getErrorMessage());
-                continue;
-            }
- 
-            VariableBinding[] varBindings = event.getVariableBindings();
-            if (varBindings == null || varBindings.length == 0) {
-                continue;
-            }
-            for (VariableBinding varBinding : varBindings) {
-                if (varBinding == null) {
-                    continue;
-                }
-                 
-                result.put("." + varBinding.getOid().toString(), varBinding.getVariable().toString());
-            }
- 
-        }
-        
-        String cab = "";
-        String row = "";
-        
-        int colsOk = 0;
-        int cols = 0;
-        int iCol = 0;
-        for (Map.Entry<String, String> entry : result.entrySet()) {
-        	// get num cols
-        	if (colsOk == 0){
-        		String[] x = entry.getKey().split(".");
-        		//if (x.length == 0) continue;
-        		int c = Integer.parseInt(x[x.length-1]);
-        		if (c > cols){
-        			cols = c;
-        			cab = cab + "\t" + c;
-        		}
-        		else {
-        			colsOk = 1;
-        			System.out.println(cab);
-        		}
-        	}
-        	
-    		// primeira coluna (oid)
-        	if (iCol == 0){
-        		row = entry.getKey();
-        	}
-        	
-        	// get valores
-        	row += "\t" + entry.getValue();
-        	
-        	// print e zera para proxima linha
-        	if (iCol % cols == 0){
-        		System.out.println(row);
-        		iCol = 0;
-        	}
-        }
-        
+		// #####
+		Map<String, SortedMap<String, String>> result = new LinkedHashMap<String, SortedMap<String, String>>();
+
+		TreeUtils treeUtils = new TreeUtils(snmp, new DefaultPDUFactory());
+		List<TreeEvent> events = treeUtils.getSubtree(comtarget, new OID(
+				oidValue));
+		if (events == null || events.size() == 0) {
+			System.out.println("Error: Unable to read table...");
+			// return result;
+		}
+
+		for (TreeEvent event : events) {
+			if (event == null) {
+				continue;
+			}
+			if (event.isError()) {
+				System.out.println("Error: table OID [" + oidValue + "] "
+						+ event.getErrorMessage());
+				continue;
+			}
+
+			VariableBinding[] varBindings = event.getVariableBindings();
+			if (varBindings == null || varBindings.length == 0) {
+				continue;
+			}
+			for (VariableBinding varBinding : varBindings) {
+				if (varBinding == null) {
+					continue;
+				}
+
+				Map<String, String> current;
+
+				String keyAndIndex = "." + varBinding.getOid().toString();
+				String key = keyAndIndex.substring(0,
+						keyAndIndex.lastIndexOf("."));
+				String instance = keyAndIndex.replace(key, "");
+
+				if (!result.containsKey(key)) {
+					// nova linha
+					result.put(key, new TreeMap<String, String>());
+				}
+
+				current = result.get(key);
+
+				// nova coluna para a linhas
+				current.put(instance, varBinding.getVariable().toString());
+
+			}
+
+		}
+
+		for (Map.Entry<String, SortedMap<String, String>> entryRow : result
+				.entrySet()) {
+
+			System.out.print(entryRow.getKey());
+
+			for (Map.Entry<String, String> entryCol : entryRow.getValue()
+					.entrySet()) {
+
+				System.out.print("\t|" + entryCol.getValue());
+
+			}
+
+			System.out.print("\n");
+
+		}
+
 		snmp.close();
-		
+
 	}
 }
