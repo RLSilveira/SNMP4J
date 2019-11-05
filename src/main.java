@@ -35,18 +35,18 @@ public class main {
 	// .iso.org.dod.internet.mgmt.mib-2.system.sysDescr
 	private static String oidValue = ".1.3.6.1.2.1.1.1";
 
-	private static String instance = "0";
+	private static String instance = null;
 
 	private static Integer requestId = 1;
 
 	/**
 	 * @param args
 	 * @throws IOException
+	 * @throws InterruptedException
 	 */
-	public static void main(String[] args) throws IOException {
+	public static void main(String[] args) throws IOException,
+			InterruptedException {
 		// TODO Auto-generated method stub
-
-		System.out.println("Olá!");
 
 		Scanner ss = new Scanner(System.in);
 
@@ -62,9 +62,7 @@ public class main {
 		if (!cm.isEmpty())
 			community = cm;
 
-		// *** Init
-
-		int opt = 2;
+		int opt = -1;
 		// *** Opt
 		System.out.println("Informe a opção desejada:");
 		System.out.println(" 1 - GET");
@@ -73,7 +71,7 @@ public class main {
 		System.out.println(" 4 - GETBULK");
 		System.out.println(" 5 - WALK");
 		System.out.println(" 6 - GETTABLE");
-		// System.out.println(" 7 - GETDELTA");
+		System.out.println(" 7 - GETDELTA");
 
 		opt = Integer.parseInt(ss.nextLine());
 
@@ -86,6 +84,7 @@ public class main {
 			if (!oid.isEmpty())
 				oidValue = oid;
 
+			instance = "0";
 			System.out.println("Informe a instância (default: " + instance
 					+ "):");
 			inst = ss.nextLine();
@@ -103,7 +102,6 @@ public class main {
 			if (!oid.isEmpty())
 				oidValue = oid;
 
-			instance = null;
 			System.out.println("Informe a instância (default: null):");
 			inst = ss.nextLine();
 			if (!inst.isEmpty())
@@ -115,11 +113,13 @@ public class main {
 
 		case 3: // SET
 
+			oidValue = ".1.3.6.1.2.1.1.5";
 			System.out.println("Informe o OID: (default: " + oidValue + "):");
 			oid = ss.nextLine();
 			if (!oid.isEmpty())
 				oidValue = oid;
 
+			instance = "0";
 			System.out.println("Informe a instância (default: " + instance
 					+ "):");
 			inst = ss.nextLine();
@@ -140,8 +140,7 @@ public class main {
 					.println("Informe os OIDs (já com a instancia e separados por ';'):");
 
 			oidValue = ".1.3.6.1.2.1.1.1.0;.1.3.6.1.2.1.1.2.0;.1.3.6.1.2.1.1.3.0";
-			System.out
-					.println("(default: .1.3.6.1.2.1.1.1.0;.1.3.6.1.2.1.1.2.0;.1.3.6.1.2.1.1.3.0)");
+			System.out.println("(default: " + oidValue + ")");
 			oid = ss.nextLine();
 			if (!oid.isEmpty())
 				oidValue = oid;
@@ -179,6 +178,40 @@ public class main {
 				oidValue = oid;
 
 			snmpGetTable();
+
+			break;
+
+		case 7: // DELTA
+
+			int n = 5;
+			System.out.println("Informe o número de requisições: (default: "
+					+ n + "):");
+			String nn = ss.nextLine();
+			if (!nn.isEmpty())
+				n = Integer.parseInt(nn);
+
+			int m = 1500;
+			System.out
+					.println("Informe o intervalo de tempo(ms) entre as requisições: (default: "
+							+ m + "ms):");
+			String mm = ss.nextLine();
+			if (!mm.isEmpty())
+				m = Integer.parseInt(mm);
+
+			oidValue = ".1.3.6.1.2.1.4.3";
+			System.out.println("Informe o OID: (default: " + oidValue + "):");
+			oid = ss.nextLine();
+			if (!oid.isEmpty())
+				oidValue = oid;
+
+			instance = "0";
+			System.out.println("Informe a instância (default: " + instance
+					+ "):");
+			inst = ss.nextLine();
+			if (!inst.isEmpty())
+				instance = inst;
+
+			snmpGetDelta(n, m);
 
 			break;
 
@@ -496,7 +529,7 @@ public class main {
 		}
 
 		for (Map.Entry<String, String> entry : result.entrySet()) {
-
+			// print somente sub-arvore 
 			if (entry.getKey().startsWith(oidValue)) {
 				System.out.println(entry.getKey() + ": " + entry.getValue());
 			}
@@ -558,7 +591,7 @@ public class main {
 				String keyAndIndex = "." + varBinding.getOid().toString();
 				String key = keyAndIndex.substring(0,
 						keyAndIndex.lastIndexOf("."));
-				String instance = keyAndIndex.replace(key, "");
+				String _instance = keyAndIndex.replace(key, "");
 
 				if (!result.containsKey(key)) {
 					// nova linha
@@ -567,8 +600,8 @@ public class main {
 
 				current = result.get(key);
 
-				// nova coluna para a linhas
-				current.put(instance, varBinding.getVariable().toString());
+				// nova coluna para a linha
+				current.put(_instance, varBinding.getVariable().toString());
 
 			}
 
@@ -591,6 +624,81 @@ public class main {
 		}
 
 		snmp.close();
+
+	}
+
+	private static void snmpGetDelta(int N, int M) throws IOException,
+			InterruptedException {
+
+		// Create TransportMapping and Listen
+		TransportMapping transport = new DefaultUdpTransportMapping();
+		transport.listen();
+
+		// Create Target Address object
+		CommunityTarget comtarget = new CommunityTarget();
+		comtarget.setCommunity(new OctetString(community));
+		comtarget.setVersion(SnmpConstants.version2c);
+		comtarget.setAddress(new UdpAddress(ipAddress + "/" + port));
+		comtarget.setRetries(2);
+		comtarget.setTimeout(1500);
+
+		// Create Snmp object for sending data to Agent
+		Snmp snmp = new Snmp(transport);
+
+		// Create the PDU object
+		PDU pdu = new PDU();
+		pdu.add(new VariableBinding(new OID(oidValue + "." + instance)));
+		pdu.setType(PDU.GET);
+		pdu.setRequestID(new Integer32(requestId++));
+
+		String resps[] = new String[N];
+		for (int n = 0; n < N; n++) {
+
+			System.out.println("Sending Request to Agent...");
+			ResponseEvent response = snmp.get(pdu, comtarget);
+
+			// Process Agent Response
+			if (response != null) {
+				System.out.println("Got Response from Agent");
+				PDU responsePDU = response.getResponse();
+
+				if (responsePDU != null) {
+					int errorStatus = responsePDU.getErrorStatus();
+					int errorIndex = responsePDU.getErrorIndex();
+					String errorStatusText = responsePDU.getErrorStatusText();
+
+					if (errorStatus == PDU.noError) {
+
+						resps[n] = responsePDU.getVariableBindings()
+								.firstElement().toString();
+
+					} else {
+						System.out.println("Error: Request Failed");
+						System.out.println("Error Status = " + errorStatus);
+						System.out.println("Error Index = " + errorIndex);
+						System.out.println("Error Status Text = "
+								+ errorStatusText);
+					}
+				} else {
+					System.out.println("Error: Response PDU is null");
+				}
+			} else {
+				System.out.println("Error: Agent Timeout... ");
+			}
+
+			Thread.sleep(M);
+		}
+
+		snmp.close();
+
+		// print delta
+		int v1 = Integer.parseInt(resps[0].split("=")[1].trim()), v2;
+		for (int i = 1; i < N; i++) {
+			v2 = Integer.parseInt(resps[i].split("=")[1].trim());
+			System.out.printf("delta entre %d e %d é %d\n", v1, v2, v2 - v1);
+
+			v1 = v2;
+		}
 
 	}
 }
